@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import useAuth from '../hooks/useAuth';
 
 const Dashboard = () => {
-    const { isLoggedIn, logout } = useAuth(); // Use authentication hook
     const [user, setUser] = useState(null);
     const [deployments, setDeployments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -14,15 +12,14 @@ const Dashboard = () => {
     // Fetch user and deployments
     useEffect(() => {
         const fetchData = async () => {
-            if (!isLoggedIn) {
-                navigate('/'); // Redirect if not logged in
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                navigate('/');
                 return;
             }
 
             try {
                 setLoading(true);
-                const token = localStorage.getItem('authToken');
-
                 // Fetch user data
                 const userResponse = await axios.get(
                     `${process.env.REACT_APP_API_BASE_URL}/user/profile`,
@@ -48,7 +45,14 @@ const Dashboard = () => {
         };
 
         fetchData();
-    }, [isLoggedIn, navigate]);
+    }, [navigate]);
+
+    // Handle logout
+    const handleLogout = () => {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        navigate('/');
+    };
 
     return (
         <div className="container mx-auto p-6">
@@ -66,7 +70,7 @@ const Dashboard = () => {
                             Welcome, {user?.name || 'User'}!
                         </h2>
                         <button
-                            onClick={logout}
+                            onClick={handleLogout}
                             className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
                         >
                             Logout
