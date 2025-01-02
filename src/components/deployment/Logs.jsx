@@ -1,43 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
+import useApi from '../hooks/useApi';
 
 const Logs = () => {
     const { deploymentId } = useParams(); // Get deployment ID from the URL
+    const api = useApi(); // Use custom API hook
     const [logs, setLogs] = useState([]);
     const [filter, setFilter] = useState('');
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState('');
 
     useEffect(() => {
         const fetchLogs = async () => {
-            const token = localStorage.getItem('authToken');
-            if (!token) {
-                setError('Authentication required. Please log in.');
+            if (!deploymentId) {
+                setError('No deployment ID provided. Please select a valid deployment.');
                 setLoading(false);
                 return;
             }
 
             try {
                 setLoading(true);
-                const response = await axios.get(
-                    `${process.env.REACT_APP_API_BASE_URL}/deployments/${deploymentId}/logs`,
-                    {
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                    }
-                );
+                const response = await api.get(`/deployments/${deploymentId}/logs`);
                 setLogs(response.data.logs || []);
-                setLoading(false);
             } catch (err) {
-                setError('Failed to fetch logs. Please try again.');
+                setError(err.response?.data?.message || 'Failed to fetch logs.');
+            } finally {
                 setLoading(false);
             }
         };
 
         fetchLogs();
-    }, [deploymentId]);
+    }, [api, deploymentId]);
 
     const filteredLogs = logs.filter((log) =>
         log.message.toLowerCase().includes(filter.toLowerCase())
@@ -47,14 +40,17 @@ const Logs = () => {
         <div className="container mx-auto p-6">
             <h2 className="text-2xl font-bold mb-4">Deployment Logs</h2>
 
+            {/* Error Message */}
             {error && (
                 <div className="bg-red-100 text-red-700 p-3 mb-4 rounded">
                     {error}
                 </div>
             )}
 
+            {/* Loading Indicator */}
             {loading && <p className="text-center text-gray-700">Loading logs...</p>}
 
+            {/* Logs Content */}
             {!loading && !error && (
                 <>
                     {/* Filter Input */}
@@ -77,7 +73,11 @@ const Logs = () => {
                                         <p className="text-sm text-gray-500">
                                             {new Date(log.timestamp).toLocaleString()}
                                         </p>
-                                        <p className={`text-md font-medium text-${log.level === 'error' ? 'red-500' : 'gray-800'}`}>
+                                        <p
+                                            className={`text-md font-medium ${
+                                                log.level === 'error' ? 'text-red-500' : 'text-gray-800'
+                                            }`}
+                                        >
                                             {log.message}
                                         </p>
                                     </li>
