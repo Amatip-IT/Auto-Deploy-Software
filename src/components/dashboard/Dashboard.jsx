@@ -1,41 +1,45 @@
-// src/components/dashboard/Dashboard.js
-
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const Dashboard = () => {
     const [user, setUser] = useState(null);
-    const [projects, setProjects] = useState([]);
+    const [deployments, setDeployments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-
     const navigate = useNavigate();
 
-    // Fetch user and project data on component mount
+    // Fetch user and deployments
     useEffect(() => {
         const fetchData = async () => {
-            try {
-                // Fetch user information
-                const token = localStorage.getItem('authToken');
-                if (!token) {
-                    navigate('/login'); // Redirect to login if not authenticated
-                    return;
-                }
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                navigate('/');
+                return;
+            }
 
-                const userResponse = await axios.get('/api/user/profile', {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
+            try {
+                setLoading(true);
+                // Fetch user data
+                const userResponse = await axios.get(
+                    `${process.env.REACT_APP_API_BASE_URL}/user/profile`,
+                    {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }
+                );
                 setUser(userResponse.data);
 
-                // Fetch user's projects
-                const projectResponse = await axios.get('/api/projects', {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                setProjects(projectResponse.data);
+                // Fetch deployment data
+                const deploymentsResponse = await axios.get(
+                    `${process.env.REACT_APP_API_BASE_URL}/deployments`,
+                    {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }
+                );
+                setDeployments(deploymentsResponse.data.deployments || []);
                 setLoading(false);
             } catch (err) {
-                setError('Failed to load data. Please try again.');
+                setError('Failed to fetch data. Please try again.');
                 setLoading(false);
             }
         };
@@ -47,77 +51,81 @@ const Dashboard = () => {
     const handleLogout = () => {
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
-        navigate('/login');
+        navigate('/');
     };
 
     return (
-        <div className="min-h-screen bg-gray-100">
-            <header className="bg-blue-500 text-white p-4">
-                <div className="container mx-auto flex justify-between items-center">
-                    <h1 className="text-lg font-bold">Dashboard</h1>
-                    <div>
-                        <span className="mr-4">
-                            Welcome, {user ? user.name : 'Loading...'}
-                        </span>
+        <div className="container mx-auto p-6">
+            {loading && <p className="text-center text-gray-700">Loading...</p>}
+            {error && (
+                <div className="bg-red-100 text-red-700 p-3 mb-4 rounded text-center">
+                    {error}
+                </div>
+            )}
+            {!loading && !error && (
+                <>
+                    {/* User Welcome */}
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold">
+                            Welcome, {user?.name || 'User'}!
+                        </h2>
                         <button
                             onClick={handleLogout}
-                            className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded"
+                            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
                         >
                             Logout
                         </button>
                     </div>
-                </div>
-            </header>
 
-            <main className="container mx-auto p-6">
-                {loading && <p className="text-center text-gray-700">Loading...</p>}
-                {error && (
-                    <div className="bg-red-100 text-red-700 p-3 mb-4 rounded text-center">
-                        {error}
+                    {/* Deployment Actions */}
+                    <div className="mb-6">
+                        <Link
+                            to="/deployment/new"
+                            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mr-4"
+                        >
+                            New Deployment
+                        </Link>
+                        <Link
+                            to="/analytics"
+                            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                        >
+                            View Analytics
+                        </Link>
                     </div>
-                )}
-                {!loading && !error && (
-                    <>
-                        <h2 className="text-2xl font-bold mb-4">Your Projects</h2>
-                        {projects.length > 0 ? (
+
+                    {/* Deployment List */}
+                    <div>
+                        <h3 className="text-xl font-bold mb-4">Your Deployments</h3>
+                        {deployments.length > 0 ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {projects.map((project) => (
+                                {deployments.map((deployment) => (
                                     <div
-                                        key={project.id}
-                                        className="bg-white shadow-lg rounded p-4"
+                                        key={deployment.id}
+                                        className="bg-white p-4 rounded shadow hover:shadow-lg"
                                     >
-                                        <h3 className="font-semibold text-lg mb-2">
-                                            {project.name}
-                                        </h3>
-                                        <p className="text-gray-700 mb-4">
-                                            {project.description}
+                                        <h4 className="text-lg font-semibold">
+                                            {deployment.name}
+                                        </h4>
+                                        <p className="text-sm text-gray-600">
+                                            {deployment.description || 'No description provided.'}
                                         </p>
-                                        <button
-                                            onClick={() =>
-                                                navigate(`/projects/${project.id}`)
-                                            }
-                                            className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
-                                        >
-                                            View Details
-                                        </button>
+                                        <div className="mt-4">
+                                            <Link
+                                                to={`/deployment/logs/${deployment.id}`}
+                                                className="text-blue-500 hover:underline"
+                                            >
+                                                View Logs
+                                            </Link>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-gray-700">
-                                You have no projects.{' '}
-                                <a
-                                    href="/projects/new"
-                                    className="text-blue-500 hover:underline"
-                                >
-                                    Create a new project
-                                </a>
-                                .
-                            </p>
+                            <p className="text-gray-600">You have no deployments yet.</p>
                         )}
-                    </>
-                )}
-            </main>
+                    </div>
+                </>
+            )}
         </div>
     );
 };
